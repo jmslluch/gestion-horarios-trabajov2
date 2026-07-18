@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestión de Horarios de Trabajo</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a4a7a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Horarios Trabajo">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  :root { --header-bg:#1a4a7a; --header-text:#fff; --festivo-bg:#ffcccc; --local-bg:#ffe0b3; --vacaciones-bg:#cfe8d4; --weekend-bg:#e0e0e0; --gold:#e8a020; --worked-dot:#1a4a7a; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:Arial,sans-serif; font-size:13px; background:#f0f2f5; color:#222; }
+
+  header { background:var(--header-bg); color:var(--header-text); padding:12px 20px; display:flex; align-items:center; gap:14px; }
+  header h1 { font-size:17px; font-weight:bold; flex:1; }
+  header .badge { background:#fff; color:var(--header-bg); border-radius:4px; padding:3px 10px; font-size:11px; font-weight:bold; }
+
+  .year-nav { background:#fff; border-bottom:2px solid #c8d4e8; padding:10px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .year-nav .nav-label { font-size:12px; color:#555; font-weight:bold; }
+  .year-nav button.yn { padding:6px 14px; border:1px solid #aaa; border-radius:20px; cursor:pointer; font-size:12px; background:#f0f0f0; transition:all 0.15s; }
+  .year-nav button.yn:hover { background:#dde4f0; border-color:var(--header-bg); }
+  .year-nav button.yn.active { background:var(--header-bg); color:#fff; border-color:var(--header-bg); font-weight:bold; }
+  .year-nav button.yn-arrow { padding:6px 12px; border:1px solid #aaa; border-radius:4px; cursor:pointer; font-size:14px; background:#f0f0f0; }
+  .year-nav button.yn-arrow:hover { background:#dde4f0; }
+  .year-nav .year-display { font-size:15px; font-weight:bold; color:var(--header-bg); min-width:70px; text-align:center; }
+  .year-nav .info-badge { margin-left:auto; background:#fff8e0; border:1px solid #e0c040; border-radius:4px; padding:4px 10px; font-size:11px; color:#664400; }
+
+  .toolbar { background:#fff; border-bottom:1px solid #ddd; padding:8px 16px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .toolbar button { padding:6px 13px; border:1px solid #aaa; border-radius:4px; cursor:pointer; font-size:12px; background:#f0f0f0; }
+  .toolbar button:hover { background:#ddd; }
+  .toolbar button.primary { background:var(--header-bg); color:#fff; border-color:var(--header-bg); }
+  .toolbar button.primary:hover { background:#1060a0; }
+  .toolbar button.danger { background:#cc2222; color:#fff; border-color:#cc2222; }
+  .toolbar button.danger:hover { background:#aa0000; }
+  .toolbar .sep { width:1px; height:26px; background:#ccc; }
+  .toolbar button.cat-btn { display:inline-flex; align-items:center; gap:6px; background:#fff; }
+  .toolbar button.cat-btn.active { box-shadow:0 0 0 2px rgba(0,0,0,.18) inset; font-weight:bold; }
+  .toolbar button.cat-btn .cat-sw { width:13px; height:13px; border-radius:3px; border:1px solid rgba(0,0,0,.3); display:inline-block; }
+  .toolbar .mode-label { font-size:11px; color:#666; font-weight:bold; }
+
+  .hint { background:#fffbe6; border:1px solid #f0c040; border-radius:4px; padding:5px 12px; font-size:11px; color:#664400; margin:8px 16px; }
+
+  .calendar-grid { display:flex; flex-wrap:wrap; gap:18px; padding:14px 16px; }
+  .month-card { background:#fff; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,.13); overflow:hidden; flex:1 1 280px; max-width:360px; min-width:0; }
+  .month-header { background:var(--header-bg); color:#fff; text-align:center; padding:7px 4px; font-size:12px; font-weight:bold; letter-spacing:.5px; }
+  .month-table { border-collapse:collapse; width:100%; table-layout:fixed; }
+  .month-table th { background:#2c5f8a; color:#fff; text-align:center; font-size:11px; padding:4px 2px; }
+  .month-table td { position:relative; text-align:center; padding:0; height:34px; cursor:pointer; border:1px solid #e8e8e8; transition:background .1s; user-select:none; }
+  .month-table td .day-num { display:block; line-height:34px; font-size:clamp(11px,3vw,13px); }
+  .month-table td.weekend { background:var(--weekend-bg); color:#555; cursor:pointer; }
+  .month-table td.festivo { background:var(--festivo-bg) !important; color:#990000; font-weight:bold; }
+  .month-table td.local { background:var(--local-bg) !important; color:#8a5300; font-weight:bold; }
+  .month-table td.vacaciones { background:var(--vacaciones-bg) !important; color:#1a6a3a; font-weight:bold; }
+  .month-table td.empty { background:#f8f8f8; cursor:default; }
+  .month-table td:not(.empty):not(.weekend):hover { background:#e4ecff; }
+  .month-table td.worked::after { content:''; position:absolute; bottom:2px; right:3px; width:6px; height:6px; border-radius:50%; background:var(--worked-dot); }
+  /* Pantallas estrechas (móvil en vertical): un mes por fila, a todo el ancho disponible */
+  @media (max-width: 480px) {
+    .month-card { flex-basis:100%; max-width:100%; }
+  }
+
+  /* Modal */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:999; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:#fff; border-radius:8px; padding:22px; min-width:280px; box-shadow:0 4px 24px rgba(0,0,0,.25); }
+  .modal h3 { margin-bottom:14px; color:var(--header-bg); font-size:15px; }
+  .modal label { display:block; font-size:12px; margin-bottom:3px; color:#444; }
+  .modal input, .modal select { width:100%; padding:7px 10px; border:1px solid #aaa; border-radius:4px; font-size:13px; margin-bottom:11px; background:#fff; }
+  .modal .btns { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+  .modal .btns button { padding:7px 18px; border-radius:4px; border:1px solid #aaa; cursor:pointer; font-size:13px; }
+  .modal .btns button.ok { background:var(--header-bg); color:#fff; border-color:var(--header-bg); }
+  .modal .btns button.danger { background:#cc2222; color:#fff; border-color:#cc2222; }
+  #horasCalculadas { font-size:12px; color:#444; margin-bottom:12px; font-weight:bold; }
+
+  .status-bar { background:#e8eef6; border-top:1px solid #c8d4e8; padding:4px 16px; font-size:11px; color:#445; }
+
+  .report-panel { margin:16px; background:#fff; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,.1); }
+  .report-panel h2 { background:var(--header-bg); color:#fff; padding:8px 14px; font-size:13px; border-radius:6px 6px 0 0; }
+  .report-controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:14px; }
+  .report-controls label { font-size:12px; font-weight:bold; color:#444; }
+  .report-controls select, .report-controls input { padding:6px 9px; border:1px solid #aaa; border-radius:4px; font-size:12px; }
+  .rep-sub { display:inline-flex; gap:8px; align-items:center; }
+  #reportResult { border-top:1px solid #eee; }
+  table.rep-table { width:100%; border-collapse:collapse; font-size:12px; }
+  table.rep-table th, table.rep-table td { border:1px solid #e0e0e0; padding:5px 8px; text-align:center; }
+  table.rep-table thead th { background:#eef3fa; color:var(--header-bg); }
+  table.rep-table tfoot td { background:#f7f9fc; font-weight:bold; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🕒 Control de Horas Trabajadas</h1>
+  <span class="badge">Calendario laboral · Comunitat Valenciana</span>
+</header>
+
+<div class="report-panel" id="configPanel">
+  <h2>⚙️ Gestión de horas</h2>
+  <div class="report-controls" style="align-items:flex-start;flex-direction:column;gap:16px;padding-bottom:10px">
+
+    <div style="width:100%">
+      <label style="display:block;margin-bottom:6px;font-size:12px">👤 Datos del trabajador</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="cfgNombre" placeholder="Nombre y apellidos" style="flex:1;min-width:220px;padding:7px 10px;border:1px solid #aaa;border-radius:4px;font-size:12px">
+        <input type="text" id="cfgDni" placeholder="DNI (12345678Z)" maxlength="9" style="width:150px;padding:7px 10px;border:1px solid #aaa;border-radius:4px;font-size:12px;text-transform:uppercase">
+        <span id="cfgDniFeedback" style="font-size:11px;font-weight:bold"></span>
+        <input type="text" id="cfgOtroDoc" placeholder="Otro documento identificativo (pasaporte, NIE...)" style="min-width:220px;padding:7px 10px;border:1px solid #aaa;border-radius:4px;font-size:12px">
+      </div>
+    </div>
+
+    <div style="width:100%">
+      <label style="display:block;margin-bottom:6px;font-size:12px">🔀 Tipo de jornada</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="cfgTipoJornada">
+          <option value="continua">Jornada continua (un solo tramo)</option>
+          <option value="partida">Jornada partida (dos tramos, p. ej. mañana y tarde)</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="width:100%">
+      <label style="display:block;margin-bottom:6px;font-size:12px">🎯 Precisión horaria <span style="font-weight:normal;color:#777">(intervalo entre las horas seleccionables)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="cfgPrecision">
+          <option value="30">Cada 30 minutos</option>
+          <option value="15">Cada 15 minutos</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="width:100%" id="bloqueTramo1">
+      <label style="display:block;margin-bottom:6px;font-size:12px" id="labelJornada1">🕒 Intervalo de la jornada <span style="font-weight:normal;color:#777">(rango completo de 24 h; delimita las opciones del intervalo predeterminado)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="cfgJornadaInicio"></select>
+        <span style="font-size:12px;color:#666">a</span>
+        <select id="cfgJornadaFin"></select>
+      </div>
+      <label style="display:block;margin:10px 0 6px;font-size:12px" id="labelPredeterminado1">⭐ Intervalo predeterminado <span style="font-weight:normal;color:#777">(valores que se preseleccionan al marcar un día; acotado por la jornada)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="cfgDefEntrada"></select>
+        <span style="font-size:12px;color:#666">a</span>
+        <select id="cfgDefSalida"></select>
+      </div>
+    </div>
+
+    <div style="width:100%;display:none;border-top:1px dashed #ccc;padding-top:14px" id="bloqueTramo2">
+      <label style="display:block;margin-bottom:6px;font-size:12px">🕒 Tramo 2 — Intervalo de la jornada <span style="font-weight:normal;color:#777">(puede solaparse con el tramo 1; algunos días varía)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="cfgJornadaInicio2"></select>
+        <span style="font-size:12px;color:#666">a</span>
+        <select id="cfgJornadaFin2"></select>
+      </div>
+      <label style="display:block;margin:10px 0 6px;font-size:12px">⭐ Tramo 2 — Intervalo predeterminado <span style="font-weight:normal;color:#777">(no puede solaparse con el predeterminado del tramo 1)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="cfgDefEntrada2"></select>
+        <span style="font-size:12px;color:#666">a</span>
+        <select id="cfgDefSalida2"></select>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center">
+      <button class="primary" onclick="guardarConfiguracion()">💾 Guardar configuración</button>
+      <span id="cfgStatus" style="font-size:11px;color:#1a6a3a;font-weight:bold"></span>
+    </div>
+  </div>
+</div>
+
+<div class="year-nav" id="yearNav">
+  <span class="nav-label">Año:</span>
+  <button class="yn-arrow" onclick="shiftAnio(-1)">◀</button>
+  <span class="year-display" id="yearDisplay">2026</span>
+  <button class="yn-arrow" onclick="shiftAnio(1)">▶</button>
+  <div id="yearTabs" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+  <span class="info-badge" id="infoBadge"></span>
+</div>
+
+<div class="toolbar" id="modeToolbar">
+  <span class="mode-label">Modo:</span>
+  <button id="modeHorasBtn" class="cat-btn active" onclick="setMode('horas')">🕒 Registrar horas</button>
+  <button id="modeCalBtn" class="cat-btn" onclick="setMode('calendario')">📅 Editar calendario (festivos)</button>
+</div>
+
+<div class="toolbar" id="toolbarCalendario" style="display:none">
+  <span style="font-size:11px;color:#666;font-weight:bold">Categoría activa:</span>
+  <button id="catFestBtn" onclick="setActiveCat('fest')" class="cat-btn active" style="border-color:#cc2222">
+    <span class="cat-sw" style="background:var(--festivo-bg)"></span> Festivo oficial
+  </button>
+  <button id="catLocalBtn" onclick="setActiveCat('local')" class="cat-btn">
+    <span class="cat-sw" style="background:var(--local-bg)"></span> Festivo local
+  </button>
+  <button id="catVacBtn" onclick="setActiveCat('vacaciones')" class="cat-btn">
+    <span class="cat-sw" style="background:var(--vacaciones-bg)"></span> Periodo vacacional
+  </button>
+  <div class="sep"></div>
+  <button onclick="addDiaManual()" class="primary">＋ Añadir día</button>
+  <div class="sep"></div>
+  <button onclick="resetFestivos()">↺ Restablecer festivos oficiales + agosto</button>
+  <button onclick="clearActiveCat()" class="danger">✕ Borrar categoría activa</button>
+  <div class="sep"></div>
+  <button onclick="buscarFestivosInternet()" style="background:#2a6a5a;color:#fff;border-color:#2a6a5a">🌐 Buscar e incorporar festivos nacionales</button>
+  <button onclick="buscarFestivosAutonomicos()" style="background:#5a7a9a;color:#fff;border-color:#5a7a9a">📍 Buscar festivos autonómicos/locales (por tu ubicación)</button>
+</div>
+
+<div class="hint" id="hintHoras">ℹ️ <b>Modo Registrar horas:</b> haz clic en un día laborable para anotar la hora de entrada y salida (un punto azul bajo el número indica que ya tiene horas registradas). Los fines de semana, festivos y el periodo vacacional de agosto no admiten registro; cámbialas desde "Editar calendario" si hace falta.</div>
+<div class="hint" id="hintCalendario" style="display:none">ℹ️ <b>Clic</b> en un día: marca o desmarca con la categoría activa. <b>Alt+Clic</b> en un segundo día: marca todos los días del rango. Para años sin festivos precargados, usa "🌐 Buscar e incorporar festivos nacionales" (automático, solo festivos comunes a toda España) y "📍 Buscar festivos autonómicos/locales" (te pedirá permiso de ubicación para orientar la búsqueda a tu comunidad/municipio; si lo rechazas, busca de forma genérica).</div>
+
+<div class="calendar-grid" id="calendarGrid"></div>
+
+<div class="report-panel">
+  <h2>📊 Informe de horas trabajadas</h2>
+  <div class="report-controls">
+    <label>Tipo:</label>
+    <select id="repTipo" onchange="onRepTipoChange()">
+      <option value="mensual">Mensual</option>
+      <option value="anual">Anual</option>
+      <option value="intervalo">Intervalo personalizado</option>
+    </select>
+    <span id="repMensualCtrl" class="rep-sub">
+      <select id="repMes"></select>
+      <select id="repAnioM"></select>
+    </span>
+    <span id="repAnualCtrl" class="rep-sub" style="display:none">
+      <select id="repAnioA"></select>
+    </span>
+    <span id="repIntervaloCtrl" class="rep-sub" style="display:none">
+      <input type="date" id="repDesde"> <span style="font-size:12px;color:#666">a</span> <input type="date" id="repHasta">
+    </span>
+    <button class="primary" onclick="generarInforme()">Generar informe</button>
+  </div>
+  <div id="reportResult"></div>
+</div>
+
+<!-- Modal: añadir día festivo/local/vacaciones (modo calendario) -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Añadir día</h3>
+    <label>Fecha</label>
+    <input type="date" id="modalDate" />
+    <div class="btns">
+      <button onclick="closeModal()">Cancelar</button>
+      <button class="ok" onclick="confirmAddFestivo()">Añadir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: registrar horas (modo horas) -->
+<div class="modal-overlay" id="modalHorasOverlay">
+  <div class="modal">
+    <h3>Registrar horas — <span id="modalHorasFecha"></span></h3>
+    <div id="modalHorasAviso" style="display:none;background:#fff8e0;border:1px solid #e0c040;border-radius:4px;padding:6px 9px;font-size:11px;color:#664400;margin-bottom:10px"></div>
+    <label id="tramo1Label">Hora de entrada</label>
+    <select id="selEntrada1"></select>
+    <label id="tramo1LabelSalida">Hora de salida</label>
+    <select id="selSalida1"></select>
+    <div id="modalTramo2Block" style="display:none">
+      <label>Tramo 2 — Hora de entrada</label>
+      <select id="selEntrada2"></select>
+      <label>Tramo 2 — Hora de salida</label>
+      <select id="selSalida2"></select>
+    </div>
+    <div id="horasCalculadas"></div>
+    <div class="btns">
+      <button onclick="closeModalHoras()">Cancelar</button>
+      <button id="btnEliminarHoras" class="danger" style="display:none" onclick="eliminarRegistroHoras()">Eliminar registro</button>
+      <button class="ok" onclick="confirmarHoras()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar" id="statusBar">Listo.</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// CONSTANTES
+// ═══════════════════════════════════════════════════════════════════════
+const ANIO_BASE = 2026;
+const TABS_VISIBLE = 5;
+const MESES_NOMBRE = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// Generador de listas de horas en intervalos de 30 min entre dos minutos del día.
+function generateTimeOptions(startMin,endMin,step) {
+  const out=[];
+  for (let m=startMin;m<=endMin;m+=step) {
+    const h=Math.floor(m/60), mm=m%60;
+    out.push(String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0'));
+  }
+  return out;
+}
+function timeToMinutes(t){ const [h,m]=t.split(':').map(Number); return h*60+m; }
+
+// ── Configuración de jornada / predeterminado / trabajador (gestión de horas) ──
+const CONFIG_KEY = 'config_horas_app';
+const CONFIG_DEFAULTS = {
+  nombre:'', dni:'', otroDoc:'',
+  tipoJornada:'continua', // 'continua' | 'partida'
+  precisionMinutos:30, // 15 | 30
+  jornadaInicio:'07:00', jornadaFin:'16:00', defEntrada:'07:30', defSalida:'15:30',
+  jornadaInicio2:'16:00', jornadaFin2:'20:00', defEntrada2:'17:00', defSalida2:'19:00',
+};
+function loadConfig() {
+  try { const raw = localStorage.getItem(CONFIG_KEY); return raw ? {...CONFIG_DEFAULTS, ...JSON.parse(raw)} : {...CONFIG_DEFAULTS}; }
+  catch(e) { return {...CONFIG_DEFAULTS}; }
+}
+function saveConfigData(cfg) { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); APP_CONFIG = cfg; }
+let APP_CONFIG = loadConfig();
+
+// El rango de la jornada abarca las 24 h completas (00:00 a 24:00), en pasos de la
+// precisión configurada (15 o 30 min). Si no se indica "step" explícito, se usa la
+// precisión ya guardada (APP_CONFIG); el panel de configuración pasa la precisión que
+// esté seleccionada en pantalla en cada momento, aunque todavía no se haya guardado.
+function jornadaOptionsCompletas(step) { return generateTimeOptions(0, 24*60, step || APP_CONFIG.precisionMinutos || 30); }
+// El intervalo predeterminado (y las opciones que se ofrecen al marcar un día) quedan
+// acotados por la jornada configurada.
+function opcionesDentroDeJornada(jornadaInicio, jornadaFin, step) {
+  const s = step || APP_CONFIG.precisionMinutos || 30;
+  let iniMin = timeToMinutes(jornadaInicio), finMin = timeToMinutes(jornadaFin);
+  if (finMin <= iniMin) finMin = iniMin + s; // salvaguarda ante una configuración inválida
+  return generateTimeOptions(iniMin, finMin, s);
+}
+// tramo: 1 o 2. En jornada continua solo existe el tramo 1.
+function getDayTimeOptions(tramo) {
+  if (tramo === 2) return opcionesDentroDeJornada(APP_CONFIG.jornadaInicio2, APP_CONFIG.jornadaFin2);
+  return opcionesDentroDeJornada(APP_CONFIG.jornadaInicio, APP_CONFIG.jornadaFin);
+}
+function esJornadaPartida() { return APP_CONFIG.tipoJornada === 'partida'; }
+// Dos intervalos [a1,a2) y [b1,b2) se solapan si empiezan antes de que termine el otro.
+function intervalosSolapan(a1,a2,b1,b2) { return timeToMinutes(a1) < timeToMinutes(b2) && timeToMinutes(b1) < timeToMinutes(a2); }
+
+// ── Validación de DNI/NIE (letra de control) ──
+const LETRAS_DNI = 'TRWAGMYFPDXBNJZSQVHLCKE';
+function validarDniNie(valor) {
+  const v = String(valor||'').toUpperCase().replace(/[\s-]/g,'');
+  if (v === '') return { valid:null, msg:'' }; // vacío: sin validar, campo opcional
+  const m = v.match(/^([XYZ]?)(\d{7,8})([A-Z])$/);
+  if (!m) return { valid:false, msg:'✕ Formato incorrecto (8 dígitos + letra, o X/Y/Z + 7 dígitos + letra)' };
+  const prefijo = { '':'', X:'0', Y:'1', Z:'2' }[m[1]];
+  const numero = parseInt(prefijo + m[2], 10);
+  const letraEsperada = LETRAS_DNI[numero % 23];
+  if (m[3] !== letraEsperada) return { valid:false, msg:`✕ Letra incorrecta (sería ${letraEsperada})` };
+  return { valid:true, msg:'✓ DNI/NIE válido' };
+}
+
+// Festivos oficiales (nacionales + autonómicos) de la Comunitat Valenciana para 2026
+// Decreto 100/2025, de 1 de julio, del Consell (DOGV 07/07/2025)
+const FESTIVOS_OFICIALES_CV_2026 = {
+  '2026-01-01':'fest', '2026-01-06':'fest', '2026-03-19':'fest', '2026-04-03':'fest',
+  '2026-04-06':'fest', '2026-05-01':'fest', '2026-06-24':'fest', '2026-08-15':'fest',
+  '2026-10-09':'fest', '2026-10-12':'fest', '2026-12-08':'fest', '2026-12-25':'fest',
+};
+// Festivos locales de ejemplo (Requena 2026). Categoría editable.
+const FESTIVOS_LOCALES_2026 = {
+  '2026-03-27':'local', '2026-04-13':'local',
+};
+function agostoVacaciones(year) {
+  const o = {}; const dias = dim(year,7);
+  for (let d=1; d<=dias; d++) o[dateKey(year,7,d)] = 'vacaciones';
+  return o;
+}
+function defaultsForYear(year) {
+  const base = { ...agostoVacaciones(year) };
+  if (year === ANIO_BASE) Object.assign(base, FESTIVOS_OFICIALES_CV_2026, FESTIVOS_LOCALES_2026);
+  return base;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════════════════════════
+let currentYear = ANIO_BASE;
+let tabOffset = 0;
+let lastClickedKey = null;
+let currentMode = 'horas'; // 'horas' | 'calendario'
+let _horasEditKey = null;
+
+function storageKey(y) { return `festivos_laboral_${y}`; }
+function loadFestivos(y) {
+  try { const raw = localStorage.getItem(storageKey(y)); if (raw) return JSON.parse(raw); return defaultsForYear(y); }
+  catch(e) { return defaultsForYear(y); }
+}
+function saveFestivos(y, data) { localStorage.setItem(storageKey(y), JSON.stringify(data)); }
+function getFestivos() { return loadFestivos(currentYear); }
+function setFestivos(data) { saveFestivos(currentYear, data); }
+
+function horasStorageKey(y) { return `horas_trabajadas_${y}`; }
+function loadHoras(y) {
+  try { const raw = localStorage.getItem(horasStorageKey(y)); return raw ? JSON.parse(raw) : {}; }
+  catch(e) { return {}; }
+}
+function saveHoras(y, data) { localStorage.setItem(horasStorageKey(y), JSON.stringify(data)); }
+function getHoras() { return loadHoras(currentYear); }
+function setHoras(data) { saveHoras(currentYear, data); }
+
+function catOf(val) { return (val==='local'||val==='vacaciones') ? val : 'fest'; }
+let activeCat = 'fest';
+function setActiveCat(cat) {
+  activeCat = cat;
+  document.getElementById('catFestBtn').classList.toggle('active', cat === 'fest');
+  document.getElementById('catLocalBtn').classList.toggle('active', cat === 'local');
+  document.getElementById('catVacBtn').classList.toggle('active', cat === 'vacaciones');
+}
+
+function setMode(m) {
+  currentMode = m; lastClickedKey = null;
+  document.getElementById('modeHorasBtn').classList.toggle('active', m==='horas');
+  document.getElementById('modeCalBtn').classList.toggle('active', m==='calendario');
+  document.getElementById('toolbarCalendario').style.display = m==='calendario' ? 'flex' : 'none';
+  document.getElementById('hintHoras').style.display = m==='horas' ? 'block' : 'none';
+  document.getElementById('hintCalendario').style.display = m==='calendario' ? 'block' : 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+function getMesesAnio(y) { const m=[]; for (let i=0;i<=11;i++) m.push({year:y, month:i}); return m; }
+function mesLabel(y,m)    { return `${MESES_NOMBRE[m]} ${y}`; }
+function dateKey(y,m,d)   { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function isWeekend(y,m,d) { const w=new Date(y,m,d).getDay(); return w===0||w===6; }
+function dim(y,m)         { return new Date(y,m+1,0).getDate(); }
+function calcularHoras(entrada,salida) {
+  const [eh,em]=entrada.split(':').map(Number), [sh,sm]=salida.split(':').map(Number);
+  return ((sh*60+sm)-(eh*60+em))/60;
+}
+// Un registro de horas de un día puede tener 1 tramo (jornada continua) o 2 (jornada
+// partida). Los registros antiguos, guardados como {entrada,salida} sueltos, se
+// normalizan aquí a la misma forma {tramos:[...]} para no tener que migrar nada.
+function normalizeRecord(rec) {
+  if (!rec) return null;
+  if (Array.isArray(rec.tramos)) return rec;
+  if (rec.entrada && rec.salida) return { tramos: [{ entrada: rec.entrada, salida: rec.salida }] };
+  return null;
+}
+function calcularHorasRecord(rec) {
+  const n = normalizeRecord(rec);
+  if (!n) return 0;
+  return n.tramos.reduce((s,t) => s + calcularHoras(t.entrada, t.salida), 0);
+}
+function formatFechaCorta(key){ const [y,m,d]=key.split('-'); return `${d}/${m}/${y}`; }
+function formatFechaLarga(key){ const d=new Date(key+'T12:00:00'); return `${d.getDate()} de ${MESES_NOMBRE[d.getMonth()].toLowerCase()} de ${d.getFullYear()}`; }
+const DIAS_SEMANA_ABREV = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+function diaSemana(key){ const d=new Date(key+'T12:00:00'); return DIAS_SEMANA_ABREV[d.getDay()]; }
+
+// ═══════════════════════════════════════════════════════════════════════
+// NAV AÑOS
+// ═══════════════════════════════════════════════════════════════════════
+function buildYearTabs() {
+  const c = document.getElementById('yearTabs');
+  c.innerHTML = '';
+  for (let i=0;i<TABS_VISIBLE;i++) {
+    const y = ANIO_BASE-1+tabOffset+i;
+    const b = document.createElement('button');
+    b.className = 'yn'+(y===currentYear?' active':'');
+    b.textContent = y;
+    b.onclick = ()=>setAnio(y);
+    c.appendChild(b);
+  }
+  document.getElementById('yearDisplay').textContent = currentYear;
+  const fests = getFestivos(); const horas = getHoras();
+  let nFest=0,nLocal=0,nVac=0;
+  for (const k of Object.keys(fests)) { const c2=catOf(fests[k]); if(c2==='local')nLocal++; else if(c2==='vacaciones')nVac++; else nFest++; }
+  let totalHoras=0; for (const k of Object.keys(horas)) totalHoras += calcularHorasRecord(horas[k]);
+  const badge = document.getElementById('infoBadge');
+  badge.textContent = `📌 ${nFest} festivos · ${nLocal} locales · ${nVac} días de vacaciones · 🕒 ${totalHoras.toFixed(2)} h registradas`;
+}
+function shiftAnio(dir) { setAnio(currentYear+dir); }
+function setAnio(y) {
+  currentYear=y; lastClickedKey=null;
+  if (y<ANIO_BASE-1+tabOffset) tabOffset=y-(ANIO_BASE-1);
+  if (y>=ANIO_BASE-1+tabOffset+TABS_VISIBLE) tabOffset=y-(ANIO_BASE-1)-TABS_VISIBLE+1;
+  buildYearTabs(); renderCalendar();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RENDER CALENDARIO
+// ═══════════════════════════════════════════════════════════════════════
+function renderCalendar() {
+  const grid = document.getElementById('calendarGrid');
+  grid.innerHTML = '';
+  const fests = getFestivos(); const horasMap = getHoras();
+  for (const {year,month} of getMesesAnio(currentYear)) grid.appendChild(buildMonthCard(year,month,fests,horasMap));
+  updateStatus(); buildYearTabs();
+}
+
+function buildMonthCard(year,month,fests,horasMap) {
+  const card = document.createElement('div');
+  card.className = 'month-card';
+  const hdr = document.createElement('div');
+  hdr.className = 'month-header';
+  hdr.textContent = mesLabel(year,month).toUpperCase();
+  card.appendChild(hdr);
+
+  const table = document.createElement('table');
+  table.className = 'month-table';
+  const thead = document.createElement('thead');
+  const hrow = document.createElement('tr');
+  ['L','M','X','J','V','S','D'].forEach(d=>{ const th=document.createElement('th'); th.textContent=d; hrow.appendChild(th); });
+  thead.appendChild(hrow); table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  const firstDow = new Date(year,month,1).getDay();
+  const offset = firstDow===0?6:firstDow-1;
+  const days = dim(year,month);
+  let day=1;
+  for (let row=0;row<6;row++) {
+    const tr=document.createElement('tr');
+    let hasContent=false;
+    for (let col=0;col<7;col++) {
+      const idx=row*7+col;
+      const td=document.createElement('td');
+      if (idx<offset||day>days) { td.className='empty'; td.innerHTML='&nbsp;'; }
+      else {
+        hasContent=true;
+        const d=day, key=dateKey(year,month,d);
+        const weekend=isWeekend(year,month,d);
+        const marked=!weekend&&Object.prototype.hasOwnProperty.call(fests,key);
+        const cat = marked ? catOf(fests[key]) : null;
+        let cls = weekend?'weekend':(cat==='local'?'local':cat==='vacaciones'?'vacaciones':cat==='fest'?'festivo':'');
+        const rec = normalizeRecord(horasMap[key]);
+        if (rec) {
+          cls += ' worked';
+          const partes = rec.tramos.map(t=>`${t.entrada}-${t.salida}`).join(' / ');
+          td.title = `${partes} · ${calcularHorasRecord(rec).toFixed(2)} h`;
+        }
+        td.className = cls.trim();
+        const sp=document.createElement('span'); sp.className='day-num'; sp.textContent=d; td.appendChild(sp);
+        td.addEventListener('click',onDayClick);
+        td.dataset.key=key;
+        day++;
+      }
+      tr.appendChild(td);
+    }
+    if (hasContent||row===0) tbody.appendChild(tr);
+    if (day>days) break;
+  }
+  table.appendChild(tbody); card.appendChild(table);
+  return card;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// INTERACCIÓN — enrutado según modo
+// ═══════════════════════════════════════════════════════════════════════
+function onDayClick(e) {
+  const key = e.currentTarget.dataset.key;
+  if (!key) return;
+  if (currentMode === 'horas') { onDayClickHoras(key); return; }
+  onDayClickCalendario(e, key);
+}
+
+// ── Modo: Registrar horas ──
+function onDayClickHoras(key) {
+  openModalHoras(key);
+}
+function openModalHoras(key) {
+  _horasEditKey = key;
+  const horas = getHoras();
+  const rec = normalizeRecord(horas[key]);
+  const partida = esJornadaPartida();
+
+  document.getElementById('modalHorasFecha').textContent = formatFechaLarga(key);
+
+  const [ky,km,kd] = key.split('-').map(Number);
+  const weekend = isWeekend(ky, km-1, kd);
+  const fests = getFestivos();
+  const marcado = Object.prototype.hasOwnProperty.call(fests, key);
+  const avisoEl = document.getElementById('modalHorasAviso');
+  if (weekend || marcado) {
+    const etiquetas = [];
+    if (weekend) etiquetas.push('fin de semana');
+    if (marcado) {
+      const cat = catOf(fests[key]);
+      etiquetas.push(cat==='local' ? 'festivo local' : cat==='vacaciones' ? 'periodo vacacional' : 'festivo oficial');
+    }
+    avisoEl.textContent = `⚠ Este día es ${etiquetas.join(' y ')}. Se muestra a modo orientativo; puedes registrar horas igualmente si trabajaste.`;
+    avisoEl.style.display = 'block';
+  } else {
+    avisoEl.style.display = 'none';
+  }
+  document.getElementById('tramo1Label').textContent = partida ? 'Tramo 1 — Hora de entrada' : 'Hora de entrada';
+  document.getElementById('tramo1LabelSalida').textContent = partida ? 'Tramo 1 — Hora de salida' : 'Hora de salida';
+
+  const opciones1 = getDayTimeOptions(1);
+  const tramo1Prev = rec && rec.tramos[0];
+  fillTimeSelect('selEntrada1', opciones1, tramo1Prev ? tramo1Prev.entrada : APP_CONFIG.defEntrada);
+  fillTimeSelect('selSalida1', opciones1, tramo1Prev ? tramo1Prev.salida : APP_CONFIG.defSalida);
+
+  document.getElementById('modalTramo2Block').style.display = partida ? 'block' : 'none';
+  if (partida) {
+    const opciones2 = getDayTimeOptions(2);
+    const tramo2Prev = rec && rec.tramos[1];
+    fillTimeSelect('selEntrada2', opciones2, tramo2Prev ? tramo2Prev.entrada : APP_CONFIG.defEntrada2);
+    fillTimeSelect('selSalida2', opciones2, tramo2Prev ? tramo2Prev.salida : APP_CONFIG.defSalida2);
+  }
+
+  document.getElementById('btnEliminarHoras').style.display = rec ? 'inline-block' : 'none';
+  updateHorasCalculadas();
+  document.getElementById('modalHorasOverlay').classList.add('open');
+}
+function fillTimeSelect(id, options, defaultVal) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '';
+  for (const t of options) {
+    const o=document.createElement('option'); o.value=t; o.textContent=t;
+    if (t===defaultVal) o.selected=true;
+    sel.appendChild(o);
+  }
+  if (!options.includes(defaultVal) && options.length) sel.value = options[0];
+}
+function updateHorasCalculadas() {
+  const e1 = document.getElementById('selEntrada1').value;
+  const s1 = document.getElementById('selSalida1').value;
+  const h1 = calcularHoras(e1,s1);
+  const el = document.getElementById('horasCalculadas');
+
+  if (h1<=0) { el.textContent='⚠ Tramo 1: la hora de salida debe ser posterior a la de entrada.'; el.style.color='#cc2222'; return; }
+
+  if (esJornadaPartida()) {
+    const e2 = document.getElementById('selEntrada2').value;
+    const s2 = document.getElementById('selSalida2').value;
+    const h2 = calcularHoras(e2,s2);
+    if (h2<=0) { el.textContent='⚠ Tramo 2: la hora de salida debe ser posterior a la de entrada.'; el.style.color='#cc2222'; return; }
+    el.textContent = `Total: ${(h1+h2).toFixed(2)} horas (Tramo 1: ${h1.toFixed(2)} h + Tramo 2: ${h2.toFixed(2)} h)`;
+    el.style.color = '#1a6a3a';
+    return;
+  }
+  el.textContent = `Total: ${h1.toFixed(2)} horas`;
+  el.style.color = '#1a6a3a';
+}
+document.getElementById('selEntrada1').addEventListener('change', updateHorasCalculadas);
+document.getElementById('selSalida1').addEventListener('change', updateHorasCalculadas);
+document.getElementById('selEntrada2').addEventListener('change', updateHorasCalculadas);
+document.getElementById('selSalida2').addEventListener('change', updateHorasCalculadas);
+
+function confirmarHoras() {
+  const e1 = document.getElementById('selEntrada1').value;
+  const s1 = document.getElementById('selSalida1').value;
+  if (calcularHoras(e1,s1)<=0) { alert('Tramo 1: la hora de salida debe ser posterior a la de entrada.'); return; }
+  const tramos = [{ entrada:e1, salida:s1 }];
+
+  if (esJornadaPartida()) {
+    const e2 = document.getElementById('selEntrada2').value;
+    const s2 = document.getElementById('selSalida2').value;
+    if (calcularHoras(e2,s2)<=0) { alert('Tramo 2: la hora de salida debe ser posterior a la de entrada.'); return; }
+    tramos.push({ entrada:e2, salida:s2 });
+  }
+
+  const horas = getHoras();
+  horas[_horasEditKey] = { tramos };
+  setHoras(horas);
+  closeModalHoras(); renderCalendar();
+}
+function eliminarRegistroHoras() {
+  const horas = getHoras();
+  delete horas[_horasEditKey];
+  setHoras(horas);
+  closeModalHoras(); renderCalendar();
+}
+function closeModalHoras() { document.getElementById('modalHorasOverlay').classList.remove('open'); _horasEditKey=null; }
+document.getElementById('modalHorasOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModalHoras();});
+
+// ── Modo: Editar calendario (festivos/local/vacaciones) ──
+function onDayClickCalendario(e, key) {
+  const [ky,km,kd] = key.split('-').map(Number);
+  if (isWeekend(ky, km-1, kd)) {
+    document.getElementById('statusBar').textContent = `El ${formatFechaCorta(key)} es fin de semana: ya se muestra como tal automáticamente, no se marca con categorías.`;
+    return;
+  }
+  const fests = getFestivos();
+  if (e.altKey && lastClickedKey && lastClickedKey !== key) {
+    selectRange(lastClickedKey, key, fests);
+    lastClickedKey = key;
+    return;
+  }
+  const has = Object.prototype.hasOwnProperty.call(fests, key);
+  if (has && catOf(fests[key]) === activeCat) delete fests[key];
+  else fests[key] = activeCat;
+  setFestivos(fests);
+  lastClickedKey = key;
+  renderCalendar();
+}
+function selectRange(fromKey, toKey, fests) {
+  const a = new Date(fromKey+'T12:00:00'), b = new Date(toKey+'T12:00:00');
+  const start = a<b ? a : b, end = a<b ? b : a;
+  const valid = new Set(getMesesAnio(currentYear).map(m=>`${m.year}-${m.month}`));
+  const d = new Date(start);
+  while (d <= end) {
+    const y=d.getFullYear(), mo=d.getMonth(), dy=d.getDate();
+    if (valid.has(`${y}-${mo}`) && !isWeekend(y,mo,dy)) fests[dateKey(y,mo,dy)] = activeCat;
+    d.setDate(d.getDate()+1);
+  }
+  setFestivos(fests); renderCalendar();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODAL — añadir festivo/local/vacaciones manual (modo calendario)
+// ═══════════════════════════════════════════════════════════════════════
+let _pFests=null;
+function addDiaManual() {
+  _pFests=getFestivos();
+  document.getElementById('modalDate').value='';
+  const catLabel = activeCat==='local' ? 'festivo local' : activeCat==='vacaciones' ? 'periodo vacacional' : 'festivo oficial';
+  document.getElementById('modalTitle').textContent = 'Añadir día — ' + catLabel;
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('modalDate').focus(),40);
+}
+function confirmAddFestivo() {
+  const date=document.getElementById('modalDate').value;
+  if (!date){alert('Introduce una fecha.');return;}
+  const fests=_pFests||getFestivos();
+  fests[date]=activeCat;
+  setFestivos(fests); closeModal(); renderCalendar();
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); _pFests=null; }
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeModal();closeModalHoras();}
+  if(e.key==='Enter') {
+    if(document.getElementById('modalOverlay').classList.contains('open')) confirmAddFestivo();
+    if(document.getElementById('modalHorasOverlay').classList.contains('open')) confirmarHoras();
+  }
+});
+
+function resetFestivos() {
+  const msg = `¿Restaurar los festivos oficiales de la Comunitat Valenciana y el periodo vacacional de agosto para ${currentYear}?\n(Los festivos locales que hayas añadido no se modifican.)`;
+  if (confirm(msg)) {
+    const fests = getFestivos();
+    const localDays = {};
+    for (const k of Object.keys(fests)) if (catOf(fests[k])==='local') localDays[k]='local';
+    setFestivos({...defaultsForYear(currentYear), ...localDays});
+    renderCalendar();
+  }
+}
+function clearActiveCat() {
+  const catLabel = activeCat==='local' ? 'festivos locales' : activeCat==='vacaciones' ? 'periodo vacacional' : 'festivos oficiales';
+  if (confirm(`¿Borrar todos los días de la categoría «${catLabel}» de ${currentYear}?`)) {
+    const fests = getFestivos();
+    for (const k of Object.keys(fests)) if (catOf(fests[k])===activeCat) delete fests[k];
+    setFestivos(fests); renderCalendar();
+  }
+}
+function updateStatus() {
+  const fests = getFestivos(); const horas = getHoras();
+  let nFest=0, nLocal=0, nVac=0;
+  for (const k of Object.keys(fests)) { const c=catOf(fests[k]); if(c==='local')nLocal++; else if(c==='vacaciones')nVac++; else nFest++; }
+  let totalHoras=0, nDias=0;
+  for (const k of Object.keys(horas)) { totalHoras += calcularHorasRecord(horas[k]); nDias++; }
+  document.getElementById('statusBar').textContent=`Año ${currentYear} · ${nFest} festivos oficiales · ${nLocal} festivos locales · ${nVac} días de vacaciones · ${nDias} días con horas registradas (${totalHoras.toFixed(2)} h)`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BUSCAR FESTIVOS EN INTERNET (para años sin datos precargados)
+// ═══════════════════════════════════════════════════════════════════════
+// Festivos nacionales (comunes a toda España): se intentan obtener automáticamente
+// de la API pública Nager.Date. Es una fuente sin garantías oficiales: siempre conviene
+// contrastarla, y en cualquier caso NO incluye los festivos autonómicos de la Comunitat
+// Valenciana (San José, Lunes de Pascua, San Juan, Día de la Comunitat Valenciana) ni
+// los festivos locales de cada municipio, que hay que añadir a mano.
+async function buscarFestivosInternet() {
+  const year = currentYear;
+  document.getElementById('statusBar').textContent = `Buscando festivos nacionales de España para ${year}...`;
+  try {
+    const resp = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/ES`);
+    if (!resp.ok) throw new Error('HTTP '+resp.status);
+    const data = await resp.json();
+    if (!Array.isArray(data) || data.length===0) throw new Error('Sin datos para ese año');
+
+    const fests = getFestivos();
+    const nuevos = data.filter(h => !Object.prototype.hasOwnProperty.call(fests, h.date));
+    const listado = data.map(h => `${formatFechaCorta(h.date)} — ${h.localName || h.name}`).join('\n');
+    const msg = `Se han encontrado ${data.length} festivos nacionales de España para ${year} (fuente: Nager.Date, sin garantía oficial):\n\n${listado}\n\n¿Añadirlos como "festivo oficial"? (${nuevos.length} son nuevos; los ya marcados no se tocan.)\n\nOjo: esta fuente NO incluye San José, Lunes de Pascua, San Juan, el Día de la Comunitat Valenciana ni los festivos locales — usa "Buscar festivos autonómicos/locales" para esos.`;
+    if (confirm(msg)) {
+      for (const h of data) if (!Object.prototype.hasOwnProperty.call(fests, h.date)) fests[h.date] = 'fest';
+      setFestivos(fests); renderCalendar();
+      document.getElementById('statusBar').textContent = `Añadidos ${nuevos.length} festivos nacionales nuevos para ${year}. Añade ahora los autonómicos y locales que falten.`;
+    } else {
+      document.getElementById('statusBar').textContent = `Búsqueda de festivos nacionales cancelada.`;
+    }
+  } catch (err) {
+    console.warn('No se pudieron obtener festivos automáticamente:', err);
+    document.getElementById('statusBar').textContent = `No se pudo conectar con el servicio de festivos (puede requerir conexión a internet); se abre una búsqueda en el navegador.`;
+    buscarFestivosAutonomicos();
+  }
+}
+
+// Los festivos autonómicos/locales varían por comunidad y municipio y no existe una API
+// pública fiable para consultarlos: se usa la geolocalización del dispositivo (con permiso
+// explícito del navegador) para saber en qué comunidad/municipio buscar, y se abre una
+// búsqueda ya orientada a esa zona para localizarlos y añadirlos a mano con "＋ Añadir día".
+function buscarFestivosAutonomicosGenerico(motivo) {
+  const year = currentYear;
+  const q = encodeURIComponent(`calendario laboral festivos Comunitat Valenciana ${year} DOGV`);
+  window.open(`https://www.google.com/search?q=${q}`, '_blank');
+  document.getElementById('statusBar').textContent = `${motivo} Se ha abierto una búsqueda genérica (Comunitat Valenciana) de festivos autonómicos/locales de ${year}; añádelos con "＋ Añadir día".`;
+}
+function buscarFestivosAutonomicos() {
+  const year = currentYear;
+  if (!navigator.geolocation) {
+    buscarFestivosAutonomicosGenerico('Tu navegador no permite geolocalización.');
+    return;
+  }
+  document.getElementById('statusBar').textContent = '📍 Solicitando permiso de ubicación para orientar la búsqueda de festivos a tu comunidad/municipio…';
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      try {
+        const { latitude, longitude } = pos.coords;
+        document.getElementById('statusBar').textContent = `📍 Ubicación obtenida (${latitude.toFixed(3)}, ${longitude.toFixed(3)}); identificando comunidad/municipio…`;
+        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&accept-language=es`);
+        if (!resp.ok) throw new Error('HTTP '+resp.status);
+        const data = await resp.json();
+        const addr = data.address || {};
+        const municipio = addr.town || addr.city || addr.village || addr.municipality || addr.county || '';
+        const ccaa = addr.state || '';
+        if (!municipio && !ccaa) throw new Error('Sin datos de dirección');
+        const lugar = [municipio, ccaa].filter(Boolean).join(', ');
+        const q = encodeURIComponent(`calendario laboral festivos ${municipio} ${ccaa} ${year}`.replace(/\s+/g,' ').trim());
+        window.open(`https://www.google.com/search?q=${q}`, '_blank');
+        document.getElementById('statusBar').textContent = `📍 Ubicación detectada mediante geolocalización: ${lugar}. Se ha abierto la búsqueda de festivos para esa zona; añádelos con "＋ Añadir día".`;
+      } catch (err) {
+        console.warn('No se pudo determinar la ubicación a partir de las coordenadas:', err);
+        buscarFestivosAutonomicosGenerico('No se pudo identificar la comunidad/municipio a partir de tu ubicación.');
+      }
+    },
+    (err) => {
+      console.warn('Geolocalización denegada o no disponible:', err);
+      buscarFestivosAutonomicosGenerico('No se ha concedido permiso de ubicación (o no está disponible).');
+    },
+    { timeout: 8000 }
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// INFORMES — mensual / anual / intervalo
+// ═══════════════════════════════════════════════════════════════════════
+let lastReportRows=null, lastReportTitle='', lastReportSubtitle='', lastReportTotals=null, lastReportPeriodo='';
+
+function populateReportSelectors() {
+  const mesSel=document.getElementById('repMes');
+  mesSel.innerHTML='';
+  MESES_NOMBRE.forEach((m,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=m; mesSel.appendChild(o); });
+  mesSel.value = new Date().getMonth();
+
+  const anios=[]; for (let y=ANIO_BASE-1;y<=ANIO_BASE+4;y++) anios.push(y);
+  ['repAnioM','repAnioA'].forEach(id=>{
+    const s=document.getElementById(id); s.innerHTML='';
+    anios.forEach(y=>{ const o=document.createElement('option'); o.value=y; o.textContent=y; s.appendChild(o); });
+    s.value = currentYear;
+  });
+  const today = new Date();
+  document.getElementById('repDesde').value = `${today.getFullYear()}-01-01`;
+  document.getElementById('repHasta').value = today.toISOString().slice(0,10);
+}
+function onRepTipoChange() {
+  const t=document.getElementById('repTipo').value;
+  document.getElementById('repMensualCtrl').style.display = t==='mensual' ? 'inline-flex' : 'none';
+  document.getElementById('repAnualCtrl').style.display = t==='anual' ? 'inline-flex' : 'none';
+  document.getElementById('repIntervaloCtrl').style.display = t==='intervalo' ? 'inline-flex' : 'none';
+}
+
+function generarInforme() {
+  const tipo=document.getElementById('repTipo').value;
+  let desde, hasta, subtitulo, periodoTexto;
+  if (tipo==='mensual') {
+    const mes=parseInt(document.getElementById('repMes').value,10);
+    const anio=parseInt(document.getElementById('repAnioM').value,10);
+    desde=new Date(anio,mes,1); hasta=new Date(anio,mes+1,0);
+    subtitulo=`Informe mensual — ${MESES_NOMBRE[mes]} ${anio}`;
+    periodoTexto=`de ${MESES_NOMBRE[mes].toLowerCase()} de ${anio}`;
+  } else if (tipo==='anual') {
+    const anio=parseInt(document.getElementById('repAnioA').value,10);
+    desde=new Date(anio,0,1); hasta=new Date(anio,11,31);
+    subtitulo=`Informe anual — ${anio}`;
+    periodoTexto=`del año ${anio}`;
+  } else {
+    const dS=document.getElementById('repDesde').value, hS=document.getElementById('repHasta').value;
+    if (!dS||!hS) { alert('Selecciona ambas fechas.'); return; }
+    desde=new Date(dS+'T00:00:00'); hasta=new Date(hS+'T00:00:00');
+    if (desde>hasta) { alert('La fecha "desde" debe ser anterior a "hasta".'); return; }
+    subtitulo=`Informe — del ${formatFechaCorta(dS)} al ${formatFechaCorta(hS)}`;
+    periodoTexto=`comprendido entre el ${formatFechaCorta(dS)} y el ${formatFechaCorta(hS)}`;
+  }
+
+  const rows=[];
+  for (let y=desde.getFullYear(); y<=hasta.getFullYear(); y++) {
+    const horas=loadHoras(y);
+    for (const key of Object.keys(horas)) {
+      const d=new Date(key+'T12:00:00');
+      if (d>=desde && d<=hasta) {
+        const rec=normalizeRecord(horas[key]);
+        if (!rec) continue;
+        rows.push({ fecha:key, fechaFmt:formatFechaCorta(key), dia:diaSemana(key), tramos:rec.tramos, horas:calcularHorasRecord(rec) });
+      }
+    }
+  }
+  rows.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const totalHoras=rows.reduce((s,r)=>s+r.horas,0);
+
+  const idTrabajador = nombreDniLinea();
+  lastReportRows=rows;
+  lastReportTitle = idTrabajador ? `Informe de horas trabajadas — ${idTrabajador}` : 'Informe de horas trabajadas';
+  lastReportSubtitle=subtitulo;
+  lastReportPeriodo=periodoTexto;
+  lastReportTotals={ dias:rows.length, horas:totalHoras };
+  renderReportResult(lastReportTitle, subtitulo, rows, lastReportTotals);
+}
+
+function renderReportResult(titulo, subtitulo, rows, totals) {
+  const el=document.getElementById('reportResult');
+  if (rows.length===0) {
+    el.innerHTML = `<p style="padding:14px;color:#a55;"><b>${titulo}</b><br>${subtitulo}<br>No hay horas registradas en este periodo.</p>`;
+    return;
+  }
+  const dosTramos = rows.some(r => r.tramos.length > 1);
+  let html = `<h3 style="padding:10px 14px 0;color:var(--header-bg);font-size:14px">${titulo}</h3>`;
+  html += `<div style="padding:2px 14px 6px;color:#667;font-size:12px">${subtitulo}</div>`;
+  html += '<div style="overflow-x:auto;padding:0 14px"><table class="rep-table"><thead><tr><th>Día</th><th>Fecha</th>';
+  html += dosTramos ? '<th>Entrada 1</th><th>Salida 1</th><th>Entrada 2</th><th>Salida 2</th>' : '<th>Entrada</th><th>Salida</th>';
+  html += '<th>Horas</th></tr></thead><tbody>';
+  for (const r of rows) {
+    html += `<tr><td>${r.dia}</td><td>${r.fechaFmt}</td>`;
+    html += `<td>${r.tramos[0].entrada}</td><td>${r.tramos[0].salida}</td>`;
+    if (dosTramos) html += `<td>${r.tramos[1] ? r.tramos[1].entrada : '—'}</td><td>${r.tramos[1] ? r.tramos[1].salida : '—'}</td>`;
+    html += `<td>${r.horas.toFixed(2)}</td></tr>`;
+  }
+  html += `</tbody><tfoot><tr><td colspan="${dosTramos ? 6 : 4}">Total: ${totals.dias} días trabajados</td><td>${totals.horas.toFixed(2)} h</td></tr></tfoot></table></div>`;
+  html += `<div style="padding:12px 14px 4px;display:flex;gap:10px;flex-wrap:wrap">
+    <button onclick="descargarInformePDF()" style="background:#cc2222;color:#fff;border:1px solid #cc2222;padding:7px 16px;border-radius:4px;cursor:pointer;font-size:12px">⬇ Descargar PDF</button>
+    <button onclick="descargarInformeExcel()" style="background:#217346;color:#fff;border:1px solid #217346;padding:7px 16px;border-radius:4px;cursor:pointer;font-size:12px">⬇ Descargar Excel</button>
+  </div>
+  <div style="padding:4px 14px 12px;display:flex;gap:10px;flex-wrap:wrap">
+    <button onclick="enviarInformePorEmail('ninguno')" style="background:#5a7a9a;color:#fff;border:1px solid #5a7a9a;padding:7px 16px;border-radius:4px;cursor:pointer;font-size:12px">✉ Email sin adjunto</button>
+    <button onclick="enviarInformePorEmail('pdf')" style="background:#2a6a5a;color:#fff;border:1px solid #2a6a5a;padding:7px 16px;border-radius:4px;cursor:pointer;font-size:12px">✉ Email con PDF</button>
+    <button onclick="enviarInformePorEmail('excel')" style="background:#1f7a4d;color:#fff;border:1px solid #1f7a4d;padding:7px 16px;border-radius:4px;cursor:pointer;font-size:12px">✉ Email con Excel</button>
+    <button onclick="enviarInformePorEmail('ambos')" style="background:#1a4a7a;color:#fff;border:1px solid #1a4a7a;padding:7px 16px;border-radius:4px;cursor:pointer;font-size:12px">✉ Email con PDF + Excel</button>
+  </div>`;
+  el.innerHTML = html;
+}
+
+// ── Generador de XLSX (ZIP construido a mano, sin dependencias externas) ──
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function strToUtf8Bytes(str) {
+  const out = [];
+  for (let i = 0; i < str.length; i++) {
+    let code = str.codePointAt(i);
+    if (code > 0xFFFF) i++;
+    if (code < 0x80) out.push(code);
+    else if (code < 0x800) out.push(0xC0 | (code >> 6), 0x80 | (code & 0x3F));
+    else if (code < 0x10000) out.push(0xE0 | (code >> 12), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
+    else out.push(0xF0 | (code >> 18), 0x80 | ((code >> 12) & 0x3F), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
+  }
+  return new Uint8Array(out);
+}
+function zipU16(v){ return [v & 0xFF, (v>>8)&0xFF]; }
+function zipU32(v){ return [v & 0xFF, (v>>8)&0xFF, (v>>16)&0xFF, (v>>24)&0xFF]; }
+// ZIP en modo STORE (sin comprimir): más simple y robusto que implementar DEFLATE a mano,
+// a costa de un archivo algo más grande (irrelevante para un informe de texto).
+function buildZip(files) {
+  const localParts = [], centralParts = [];
+  let offset = 0;
+  for (const f of files) {
+    const nameBytes = strToUtf8Bytes(f.name);
+    const dataBytes = strToUtf8Bytes(f.content);
+    const crc = crc32(dataBytes);
+    const size = dataBytes.length;
+    const localHeader = new Uint8Array([
+      0x50,0x4B,0x03,0x04, ...zipU16(20), ...zipU16(0), ...zipU16(0),
+      ...zipU16(0), ...zipU16(0), ...zipU32(crc), ...zipU32(size), ...zipU32(size),
+      ...zipU16(nameBytes.length), ...zipU16(0),
+    ]);
+    localParts.push(localHeader, nameBytes, dataBytes);
+    const centralHeader = new Uint8Array([
+      0x50,0x4B,0x01,0x02, ...zipU16(20), ...zipU16(20), ...zipU16(0), ...zipU16(0),
+      ...zipU16(0), ...zipU16(0), ...zipU32(crc), ...zipU32(size), ...zipU32(size),
+      ...zipU16(nameBytes.length), ...zipU16(0), ...zipU16(0),
+      ...zipU16(0), ...zipU16(0), ...zipU32(0), ...zipU32(offset),
+    ]);
+    centralParts.push(centralHeader, nameBytes);
+    offset += localHeader.length + nameBytes.length + dataBytes.length;
+  }
+  const centralStart = offset;
+  let centralSize = 0; for (const p of centralParts) centralSize += p.length;
+  const eocd = new Uint8Array([
+    0x50,0x4B,0x05,0x06, ...zipU16(0), ...zipU16(0),
+    ...zipU16(files.length), ...zipU16(files.length),
+    ...zipU32(centralSize), ...zipU32(centralStart), ...zipU16(0),
+  ]);
+  const parts = [...localParts, ...centralParts, eocd];
+  let total = 0; for (const p of parts) total += p.length;
+  const out = new Uint8Array(total);
+  let pos = 0; for (const p of parts) { out.set(p, pos); pos += p.length; }
+  return out;
+}
+function xlsxEscape(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function xlsxColLetter(n) { let s=''; n++; while(n>0){ const r=(n-1)%26; s=String.fromCharCode(65+r)+s; n=Math.floor((n-1)/26); } return s; }
+// sheetRows: array de filas, cada una array de celdas {v, type:'s'|'n', style:'normal'|'header'|'title'}
+// merges: array de rangos a fusionar, p.ej. ['A1:G1']
+function buildXlsx(sheetRows, sheetName, merges) {
+  const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+  const RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+  const WORKBOOK = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets><sheet name="${xlsxEscape(sheetName)}" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
+  const WORKBOOK_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+  // Paleta: azul institucional (#1a4a7a) aclarado al 50% para el bloque de título/identificación,
+  // y al 90% (muy suave, liso) para las cabeceras de columna y la fila de total.
+  const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="2">
+<font><sz val="10"/><name val="Calibri"/></font>
+<font><b/><sz val="10"/><name val="Calibri"/><color rgb="FF1A4A7A"/></font>
+</fonts>
+<fills count="3">
+<fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE8EDF2"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF8DA5BD"/><bgColor indexed="64"/></patternFill></fill>
+</fills>
+<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="3">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="1" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+
+  const STYLE_XF = { normal:'', header:' s="1"', title:' s="2"' };
+  let rowsXml = '';
+  sheetRows.forEach((row, ri) => {
+    rowsXml += `<row r="${ri+1}">`;
+    row.forEach((cell, ci) => {
+      const ref = xlsxColLetter(ci) + (ri+1);
+      const s = STYLE_XF[cell.style] || '';
+      if (cell.type === 'n') rowsXml += `<c r="${ref}"${s} t="n"><v>${cell.v}</v></c>`;
+      else rowsXml += `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${xlsxEscape(cell.v)}</t></is></c>`;
+    });
+    rowsXml += '</row>';
+  });
+  const nCols = Math.max(...sheetRows.map(r=>r.length));
+  const dim = `A1:${xlsxColLetter(nCols-1)}${sheetRows.length}`;
+  const colsXml = `<cols>${Array.from({length:nCols},(_,i)=>`<col min="${i+1}" max="${i+1}" width="14" customWidth="1"/>`).join('')}</cols>`;
+  const mergesXml = (merges && merges.length) ? `<mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : '';
+  const SHEET = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<dimension ref="${dim}"/>
+<sheetViews><sheetView workbookViewId="0"/></sheetViews>
+<sheetFormatPr defaultRowHeight="15"/>
+${colsXml}
+<sheetData>${rowsXml}</sheetData>
+${mergesXml}
+</worksheet>`;
+
+  const files = [
+    { name: '[Content_Types].xml', content: CONTENT_TYPES },
+    { name: '_rels/.rels', content: RELS },
+    { name: 'xl/workbook.xml', content: WORKBOOK },
+    { name: 'xl/_rels/workbook.xml.rels', content: WORKBOOK_RELS },
+    { name: 'xl/styles.xml', content: STYLES },
+    { name: 'xl/worksheets/sheet1.xml', content: SHEET },
+  ];
+  return buildZip(files);
+}
+// Construye el libro completo del último informe: filas de identificación del trabajador
+// (mismo texto que el título del PDF), cabecera de columnas, datos y total.
+function construirLibroExcel(rows, totals) {
+  const dosTramos = rows.some(r => r.tramos.length > 1);
+  const headers = dosTramos
+    ? ['Día','Fecha','Entrada 1','Salida 1','Entrada 2','Salida 2','Horas']
+    : ['Día','Fecha','Entrada','Salida','Horas'];
+  const nCols = headers.length;
+  const fillRow = (v, style) => { const r = headers.map(()=>({v:'', type:'s', style})); r[0] = {v, type:'s', style}; return r; };
+
+  const sheetRows = [];
+  const merges = [];
+
+  // Fila 1: identificación del trabajador / título (igual que en el PDF)
+  sheetRows.push(fillRow(lastReportTitle, 'title'));
+  merges.push(`A1:${xlsxColLetter(nCols-1)}1`);
+
+  // Fila 2: periodo del informe
+  sheetRows.push(fillRow(lastReportSubtitle, 'title'));
+  merges.push(`A2:${xlsxColLetter(nCols-1)}2`);
+
+  // Fila 3: separador en blanco
+  sheetRows.push(headers.map(()=>({v:'', type:'s', style:'normal'})));
+
+  // Fila 4: cabecera de columnas
+  sheetRows.push(headers.map(h=>({v:h, type:'s', style:'header'})));
+
+  // Filas de datos
+  for (const r of rows) {
+    const t1 = r.tramos[0], t2 = r.tramos[1];
+    const fila = [{v:r.dia,type:'s',style:'normal'},{v:r.fechaFmt,type:'s',style:'normal'},{v:t1.entrada,type:'s',style:'normal'},{v:t1.salida,type:'s',style:'normal'}];
+    if (dosTramos) fila.push({v:t2?t2.entrada:'',type:'s',style:'normal'},{v:t2?t2.salida:'',type:'s',style:'normal'});
+    fila.push({v:Number(r.horas.toFixed(2)), type:'n', style:'normal'});
+    sheetRows.push(fila);
+  }
+
+  // Fila de total
+  const totalRow = [{v:'TOTAL',type:'s',style:'header'},{v:totals.dias+' días',type:'s',style:'header'}];
+  const relleno = dosTramos ? 4 : 2;
+  for (let i=0;i<relleno;i++) totalRow.push({v:'',type:'s',style:'header'});
+  totalRow.push({v:Number(totals.horas.toFixed(2)), type:'n', style:'header'});
+  sheetRows.push(totalRow);
+
+  return { sheetRows, merges };
+}
+function generarExcelBytes() {
+  const { sheetRows, merges } = construirLibroExcel(lastReportRows, lastReportTotals);
+  return buildXlsx(sheetRows, 'Informe', merges);
+}
+
+// ── Generador de PDF (sin dependencias externas) ──
+// Mapa Unicode → WinAnsiEncoding para los caracteres "especiales" de la zona 0x80-0x9F
+// (rayas, comillas tipográficas, puntos suspensivos...). Sin este mapeo, esos caracteres
+// se convertían en "?" (por eso salía la interrogación tras la raya de mes/año).
+const WINANSI_SPECIAL = {
+  0x20AC:0x80, 0x201A:0x82, 0x0192:0x83, 0x201E:0x84, 0x2026:0x85, 0x2020:0x86,
+  0x2021:0x87, 0x02C6:0x88, 0x2030:0x89, 0x0160:0x8A, 0x2039:0x8B, 0x0152:0x8C,
+  0x017D:0x8E, 0x2018:0x91, 0x2019:0x92, 0x201C:0x93, 0x201D:0x94, 0x2022:0x95,
+  0x2013:0x96, 0x2014:0x97, 0x02DC:0x98, 0x2122:0x99, 0x0161:0x9A, 0x203A:0x9B,
+  0x0153:0x9C, 0x017E:0x9E, 0x0178:0x9F
+};
+function pdfString(s) {
+  let out = '';
+  for (const ch of String(s)) {
+    const code = ch.codePointAt(0);
+    let byte;
+    if (code < 128) byte = code;
+    else if (WINANSI_SPECIAL[code] !== undefined) byte = WINANSI_SPECIAL[code];
+    else if (code >= 0xA0 && code <= 0xFF) byte = code;
+    else byte = 0x3F; // '?' solo como último recurso para lo verdaderamente no soportado
+    const c = String.fromCharCode(byte);
+    out += (c === '\\' || c === '(' || c === ')') ? '\\' + c : c;
+  }
+  return out;
+}
+// Colores del diseño (0-1), en línea con la paleta institucional del resto de herramientas
+const PDF_COLOR = {
+  brand:[0.102,0.290,0.478], gold:[0.910,0.627,0.125], headerBg:[0.933,0.953,0.980],
+  zebra:[0.969,0.976,0.988], text:[0.13,0.13,0.13], gray:[0.42,0.45,0.5], white:[1,1,1],
+};
+function pdfRg(c){ return `${c[0].toFixed(3)} ${c[1].toFixed(3)} ${c[2].toFixed(3)} rg`; }
+function pdfRG(c){ return `${c[0].toFixed(3)} ${c[1].toFixed(3)} ${c[2].toFixed(3)} RG`; }
+
+// Estima el ancho de un texto en Helvetica-Bold/Regular para elegir un tamaño de letra
+// que quepa en el ancho disponible (título más largo al incluir nombre y DNI).
+function pdfEstimateWidth(text, fontSize) { return String(text).length * fontSize * 0.6; }
+function pdfFitFontSize(text, maxWidth, sizes) {
+  for (const s of sizes) { if (pdfEstimateWidth(text, s) <= maxWidth) return s; }
+  return sizes[sizes.length-1];
+}
+
+function buildInformePdf(title, subtitle, rows, totals) {
+  const PAGE_W=595, PAGE_H=842, MARGIN_L=48, MARGIN_R=48;
+  const HEADER_H=76, FOOTER_Y=42, rowH=17;
+  const tableTopY = PAGE_H - HEADER_H - 34;
+  const bottomLimit = FOOTER_Y + 24;
+  const rowsPerPage = Math.max(5, Math.floor((tableTopY-26-bottomLimit)/rowH));
+  const tableRight = PAGE_W - MARGIN_R;
+  const dosTramos = rows.some(r => r.tramos && r.tramos.length > 1);
+  const colX = dosTramos
+    ? { dia:MARGIN_L, fecha:MARGIN_L+30, ent1:MARGIN_L+95, sal1:MARGIN_L+150, ent2:MARGIN_L+205, sal2:MARGIN_L+260, horas:MARGIN_L+320 }
+    : { dia:MARGIN_L, fecha:MARGIN_L+55, ent1:MARGIN_L+175, sal1:MARGIN_L+275, horas:MARGIN_L+375 };
+
+  const pages=[];
+  for (let i=0;i<rows.length;i+=rowsPerPage) pages.push(rows.slice(i,i+rowsPerPage));
+  if (pages.length===0) pages.push([]);
+  const totalPages=pages.length;
+
+  const now = new Date();
+  const genDate = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  const titleMaxWidth = PAGE_W - MARGIN_L - MARGIN_R - (totalPages>1 ? 85 : 0);
+  const titleSize = pdfFitFontSize(title, titleMaxWidth, [17,15,13,11.5,10.5,9.5]);
+  const subtitleSize = pdfFitFontSize(subtitle, PAGE_W-MARGIN_L-MARGIN_R, [11,10,9]);
+
+  const contentStreams = pages.map((pageRows, idx) => {
+    let c = '';
+    // Banda de cabecera de color con filete dorado
+    c += pdfRg(PDF_COLOR.brand) + '\n';
+    c += `0 ${PAGE_H-HEADER_H} ${PAGE_W} ${HEADER_H} re f\n`;
+    c += pdfRg(PDF_COLOR.gold) + '\n';
+    c += `0 ${PAGE_H-HEADER_H-3} ${PAGE_W} 3 re f\n`;
+    c += pdfRg(PDF_COLOR.white) + '\n';
+    c += `BT /F2 ${titleSize} Tf ${MARGIN_L} ${PAGE_H-34} Td (${pdfString(title)}) Tj ET\n`;
+    c += `BT /F1 ${subtitleSize} Tf ${MARGIN_L} ${PAGE_H-52} Td (${pdfString(subtitle)}) Tj ET\n`;
+    if (totalPages>1) c += `BT /F1 9 Tf ${tableRight-70} ${PAGE_H-34} Td (${pdfString('Pagina '+(idx+1)+' / '+totalPages)}) Tj ET\n`;
+
+    // Cabecera de tabla con fondo
+    const headerRowH=22;
+    c += pdfRg(PDF_COLOR.headerBg) + '\n';
+    c += `${MARGIN_L} ${tableTopY-headerRowH+6} ${tableRight-MARGIN_L} ${headerRowH} re f\n`;
+    c += pdfRg(PDF_COLOR.brand) + '\n';
+    const headerTextY = tableTopY-headerRowH+6+7;
+    const hSize = dosTramos ? 8 : 9.5;
+    c += `BT /F2 ${hSize} Tf ${colX.dia} ${headerTextY} Td (Dia) Tj ET\n`;
+    c += `BT /F2 ${hSize} Tf ${colX.fecha} ${headerTextY} Td (Fecha) Tj ET\n`;
+    if (dosTramos) {
+      c += `BT /F2 ${hSize} Tf ${colX.ent1} ${headerTextY} Td (Ent.1) Tj ET\n`;
+      c += `BT /F2 ${hSize} Tf ${colX.sal1} ${headerTextY} Td (Sal.1) Tj ET\n`;
+      c += `BT /F2 ${hSize} Tf ${colX.ent2} ${headerTextY} Td (Ent.2) Tj ET\n`;
+      c += `BT /F2 ${hSize} Tf ${colX.sal2} ${headerTextY} Td (Sal.2) Tj ET\n`;
+    } else {
+      c += `BT /F2 ${hSize} Tf ${colX.ent1} ${headerTextY} Td (Entrada) Tj ET\n`;
+      c += `BT /F2 ${hSize} Tf ${colX.sal1} ${headerTextY} Td (Salida) Tj ET\n`;
+    }
+    c += `BT /F2 ${hSize} Tf ${colX.horas} ${headerTextY} Td (Horas) Tj ET\n`;
+
+    // Filas con franjas alternas
+    let y = tableTopY - headerRowH;
+    const rSize = dosTramos ? 8 : 9;
+    pageRows.forEach((r,i) => {
+      if (i % 2 === 1) {
+        c += pdfRg(PDF_COLOR.zebra) + '\n';
+        c += `${MARGIN_L} ${y-rowH+5} ${tableRight-MARGIN_L} ${rowH} re f\n`;
+      }
+      c += pdfRg(PDF_COLOR.text) + '\n';
+      const ty = y-rowH+11;
+      const t1 = r.tramos[0], t2 = r.tramos[1];
+      c += `BT /F1 ${rSize} Tf ${colX.dia} ${ty} Td (${pdfString(r.dia||'')}) Tj ET\n`;
+      c += `BT /F1 ${rSize} Tf ${colX.fecha} ${ty} Td (${pdfString(r.fecha)}) Tj ET\n`;
+      c += `BT /F1 ${rSize} Tf ${colX.ent1} ${ty} Td (${pdfString(t1.entrada)}) Tj ET\n`;
+      c += `BT /F1 ${rSize} Tf ${colX.sal1} ${ty} Td (${pdfString(t1.salida)}) Tj ET\n`;
+      if (dosTramos) {
+        c += `BT /F1 ${rSize} Tf ${colX.ent2} ${ty} Td (${pdfString(t2 ? t2.entrada : '-')}) Tj ET\n`;
+        c += `BT /F1 ${rSize} Tf ${colX.sal2} ${ty} Td (${pdfString(t2 ? t2.salida : '-')}) Tj ET\n`;
+      }
+      c += `BT /F1 ${rSize} Tf ${colX.horas} ${ty} Td (${pdfString(r.horas.toFixed(2)+' h')}) Tj ET\n`;
+      y -= rowH;
+    });
+
+    // Total (última página), remarcado con filete dorado
+    if (idx===totalPages-1) {
+      const rowBottomEdge = y + 5; // borde inferior de la franja de la última fila
+      const lineY = rowBottomEdge - 10; // deja un margen claro por debajo de esa fila
+      const totalY = lineY - 14;
+      c += pdfRG(PDF_COLOR.gold) + '\n1.2 w\n';
+      c += `${MARGIN_L} ${lineY} m ${tableRight} ${lineY} l S\n`;
+      c += pdfRg(PDF_COLOR.brand) + '\n';
+      c += `BT /F2 10.5 Tf ${MARGIN_L} ${totalY} Td (${pdfString('Total: '+totals.dias+' dias trabajados')}) Tj ET\n`;
+      c += `BT /F2 12 Tf ${colX.horas} ${totalY} Td (${pdfString(totals.horas.toFixed(2)+' h')}) Tj ET\n`;
+    }
+
+    // Pie de página
+    c += pdfRG(PDF_COLOR.headerBg) + '\n0.75 w\n';
+    c += `${MARGIN_L} ${FOOTER_Y+14} m ${tableRight} ${FOOTER_Y+14} l S\n`;
+    c += pdfRg(PDF_COLOR.gray) + '\n';
+    c += `BT /F1 7.5 Tf ${MARGIN_L} ${FOOTER_Y} Td (${pdfString('Generado el '+genDate+' - Control de Horas Trabajadas')}) Tj ET\n`;
+    c += `BT /F1 7.5 Tf ${tableRight-70} ${FOOTER_Y} Td (${pdfString('Pagina '+(idx+1)+'/'+totalPages)}) Tj ET\n`;
+    return c;
+  });
+
+  const CATALOG=1, PAGES_OBJ=2, FONT_R=3, FONT_B=4;
+  let objCount=4;
+  const contentObjNums=[], pageObjNums=[];
+  for (let p=0;p<totalPages;p++) { contentObjNums.push(++objCount); pageObjNums.push(++objCount); }
+
+  const chunks=[]; let offset=0; const offsets={};
+  function push(str){ chunks.push(str); offset += str.length; }
+  function addObj(num, body){ offsets[num]=offset; push(`${num} 0 obj\n${body}\nendobj\n`); }
+
+  push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+  addObj(CATALOG, `<< /Type /Catalog /Pages ${PAGES_OBJ} 0 R >>`);
+  addObj(PAGES_OBJ, `<< /Type /Pages /Kids [${pageObjNums.map(n=>n+' 0 R').join(' ')}] /Count ${totalPages} >>`);
+  addObj(FONT_R, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`);
+  addObj(FONT_B, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>`);
+  for (let p=0;p<totalPages;p++) {
+    const stream=contentStreams[p];
+    addObj(contentObjNums[p], `<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
+    addObj(pageObjNums[p], `<< /Type /Page /Parent ${PAGES_OBJ} 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] /Resources << /Font << /F1 ${FONT_R} 0 R /F2 ${FONT_B} 0 R >> >> /Contents ${contentObjNums[p]} 0 R >>`);
+  }
+  const xrefStart=offset, totalObjs=objCount;
+  let xref = `xref\n0 ${totalObjs+1}\n0000000000 65535 f \n`;
+  for (let i=1;i<=totalObjs;i++) xref += String(offsets[i]).padStart(10,'0')+' 00000 n \n';
+  push(xref);
+  push(`trailer\n<< /Size ${totalObjs+1} /Root ${CATALOG} 0 R >>\nstartxref\n${xrefStart}\n%%EOF`);
+
+  const full = chunks.join('');
+  const bytes = new Uint8Array(full.length);
+  for (let i=0;i<full.length;i++) bytes[i] = full.charCodeAt(i) & 0xFF;
+  return bytes;
+}
+
+function sanitizeFilename(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'_').toLowerCase().replace(/^_+|_+$/g,'');
+}
+function downloadBlob(blob,name) {
+  const u=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=u; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(u),2000);
+}
+function nombreDniLinea() {
+  const n = (APP_CONFIG.nombre||'').trim(), d = (APP_CONFIG.dni||'').trim(), o = (APP_CONFIG.otroDoc||'').trim();
+  const ids = [d, o].filter(Boolean).join(' · ');
+  if (n && ids) return `${n} (${ids})`;
+  return n || ids || '';
+}
+function textoTrabajador() {
+  const linea = nombreDniLinea();
+  return linea ? `Trabajador: ${linea}` : '';
+}
+function construirPdfBlob() {
+  const rowsForPdf = lastReportRows.map(r=>({fecha:r.fechaFmt, dia:r.dia, tramos:r.tramos, horas:r.horas}));
+  const bytes = buildInformePdf(lastReportTitle, lastReportSubtitle, rowsForPdf, lastReportTotals);
+  return new Blob([bytes], {type:'application/pdf'});
+}
+function construirExcelBlob() {
+  const bytes = generarExcelBytes();
+  return new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function descargarInformePDF() {
+  if (!lastReportRows) return;
+  downloadBlob(construirPdfBlob(), `informe_horas_${sanitizeFilename(lastReportSubtitle)}.pdf`);
+}
+function descargarInformeExcel() {
+  if (!lastReportRows) return;
+  downloadBlob(construirExcelBlob(), `informe_horas_${sanitizeFilename(lastReportSubtitle)}.xlsx`);
+}
+// Frase inicial obligatoria en todos los correos (con o sin adjunto), con los datos
+// del trabajador que haya configurados.
+function construirSaludoInforme() {
+  const nombre = (APP_CONFIG.nombre||'').trim();
+  const dni = (APP_CONFIG.dni||'').trim();
+  const otroDoc = (APP_CONFIG.otroDoc||'').trim();
+  let frase = `Remito las horas trabajadas en el periodo ${lastReportPeriodo}`;
+  if (nombre) frase += ` de ${nombre}`;
+  const docPartes = [];
+  if (dni) docPartes.push(`con DNI ${dni}`);
+  if (otroDoc) docPartes.push(`con ${otroDoc}`);
+  if (docPartes.length) frase += ' ' + docPartes.join(' y ');
+  return frase + '.';
+}
+// Tabla en texto plano con columnas alineadas, con el mismo contenido que el informe
+// mostrado en la aplicación (y el mismo que en el PDF/Excel).
+// Tabla en texto plano con tabuladores y barras "|" como separadores de columna (no se
+// pueden usar colores reales: ningún cliente de correo interpreta color en un cuerpo
+// "mailto" en texto plano, así que se usa un símbolo para destacar la fila de total).
+function construirTablaTextoInforme() {
+  const dosTramos = lastReportRows.some(r => r.tramos.length > 1);
+  const headers = dosTramos
+    ? ['Día','Fecha','Entrada 1','Salida 1','Entrada 2','Salida 2','Horas']
+    : ['Día','Fecha','Entrada','Salida','Horas'];
+  const filas = lastReportRows.map(r => {
+    const t1=r.tramos[0], t2=r.tramos[1];
+    const base = [r.dia, r.fechaFmt, t1.entrada, t1.salida];
+    if (dosTramos) base.push(t2?t2.entrada:'-', t2?t2.salida:'-');
+    base.push(r.horas.toFixed(2)+' h');
+    return base;
+  });
+  const totalRow = headers.map(()=>'');
+  totalRow[0]='★ TOTAL'; totalRow[1]=lastReportTotals.dias+' días'; totalRow[totalRow.length-1]=lastReportTotals.horas.toFixed(2)+' h';
+
+  const todas = [headers, ...filas, totalRow];
+  const anchos = headers.map((_,i)=> Math.max(...todas.map(f=>String(f[i]||'').length)));
+  const formatearFila = (f) => '|\t' + f.map((v,i)=>String(v||'').padEnd(anchos[i])).join('\t|\t') + '\t|';
+  const separador = '+' + anchos.map(a=>'-'.repeat(a+2)).join('+') + '+';
+
+  let texto = separador + '\n' + formatearFila(headers) + '\n' + separador + '\n';
+  filas.forEach(f => texto += formatearFila(f) + '\n');
+  texto += separador + '\n' + formatearFila(totalRow) + '\n' + separador;
+  return texto;
+}
+function buildSummaryText() {
+  let t = construirSaludoInforme() + '\n\n';
+  t += `${lastReportTitle}\n${lastReportSubtitle}\n\n`;
+  t += construirTablaTextoInforme();
+  return t;
+}
+// Si no se puede adjuntar automáticamente (mailto no lo permite por seguridad del
+// navegador), los archivos ya se han descargado antes de llegar aquí (ver
+// enviarInformePorEmail), así que solo queda avisar de que están listos para adjuntar.
+function fallbackMailto(summary, nombresArchivos) {
+  const subject=encodeURIComponent(lastReportTitle+' — '+lastReportSubtitle);
+  let nota = '';
+  if (nombresArchivos && nombresArchivos.length) {
+    nota = `\n\n(Se ha descargado ${nombresArchivos.join(' y ')} a tu carpeta de Descargas — los enlaces "mailto" no permiten adjuntar archivos automáticamente por seguridad del navegador. Adjúntalo aquí antes de enviar el correo.)`;
+  }
+  const body=encodeURIComponent(summary+nota);
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+}
+// formato: 'ninguno' | 'pdf' | 'excel' | 'ambos'
+function enviarInformePorEmail(formato) {
+  if (!lastReportRows) return;
+  const summary = buildSummaryText();
+
+  if (formato === 'ninguno') {
+    // Correo de solo texto: mismo saludo y misma tabla que el informe, sin ningún archivo.
+    fallbackMailto(summary, []);
+    return;
+  }
+
+  const archivos = [];
+  if (formato === 'pdf' || formato === 'ambos') {
+    archivos.push({ blob: construirPdfBlob(), filename: `informe_horas_${sanitizeFilename(lastReportSubtitle)}.pdf` });
+  }
+  if (formato === 'excel' || formato === 'ambos') {
+    archivos.push({ blob: construirExcelBlob(), filename: `informe_horas_${sanitizeFilename(lastReportSubtitle)}.xlsx` });
+  }
+  if (!archivos.length) return;
+
+  // Se descargan primero, de verdad (a disco), antes de intentar compartirlos: algunos
+  // navegadores/dispositivos fallan al compartir un Blob que no se ha materializado antes,
+  // y el destinatario recibe un adjunto de 0 bytes. Así siempre queda una copia real lista.
+  archivos.forEach(a => downloadBlob(a.blob, a.filename));
+
+  try {
+    const files = archivos.map(a => new File([a.blob], a.filename, { type:a.blob.type, lastModified: Date.now() }));
+    if (navigator.canShare && navigator.canShare({files})) {
+      navigator.share({title:lastReportTitle, text:summary, files})
+        .catch(err=>{ if (err && err.name!=='AbortError') fallbackMailto(summary, archivos.map(a=>a.filename)); });
+      return;
+    }
+  } catch(err) { /* cae al fallback */ }
+  fallbackMailto(summary, archivos.map(a=>a.filename));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PANEL "GESTIÓN DE HORAS" — jornada / predeterminado / datos del trabajador
+// ═══════════════════════════════════════════════════════════════════════
+function populateConfigPanel() {
+  // Datos del trabajador
+  document.getElementById('cfgNombre').value = APP_CONFIG.nombre || '';
+  document.getElementById('cfgDni').value = APP_CONFIG.dni || '';
+  document.getElementById('cfgOtroDoc').value = APP_CONFIG.otroDoc || '';
+  actualizarFeedbackDni();
+
+  document.getElementById('cfgTipoJornada').value = APP_CONFIG.tipoJornada || 'continua';
+  document.getElementById('cfgPrecision').value = APP_CONFIG.precisionMinutos || 30;
+
+  // Selects de jornada: siempre las 24 h completas, en la precisión seleccionada
+  const jornadaOpts = jornadaOptionsCompletas(precisionSeleccionada());
+  fillTimeSelect('cfgJornadaInicio', jornadaOpts, APP_CONFIG.jornadaInicio);
+  fillTimeSelect('cfgJornadaFin', jornadaOpts, APP_CONFIG.jornadaFin);
+  fillTimeSelect('cfgJornadaInicio2', jornadaOpts, APP_CONFIG.jornadaInicio2);
+  fillTimeSelect('cfgJornadaFin2', jornadaOpts, APP_CONFIG.jornadaFin2);
+
+  // Selects de predeterminado: acotados a la jornada actualmente configurada de cada tramo
+  refrescarSelectsPredeterminado(1);
+  refrescarSelectsPredeterminado(2);
+  onTipoJornadaChange();
+}
+
+// Precisión horaria seleccionada AHORA MISMO en el formulario (aunque no se haya guardado
+// todavía), para previsualizar en vivo los selects del propio panel de configuración.
+function precisionSeleccionada() {
+  const el = document.getElementById('cfgPrecision');
+  return el ? (parseInt(el.value,10) || 30) : (APP_CONFIG.precisionMinutos || 30);
+}
+// Al cambiar la precisión, se regeneran todos los selects de horas del panel (jornadas de
+// ambos tramos y sus predeterminados) conservando, en la medida de lo posible, el valor
+// más cercano ya elegido.
+function onPrecisionChange() {
+  const jornadaOpts = jornadaOptionsCompletas(precisionSeleccionada());
+  ['cfgJornadaInicio','cfgJornadaFin','cfgJornadaInicio2','cfgJornadaFin2'].forEach(id=>{
+    fillTimeSelect(id, jornadaOpts, document.getElementById(id).value);
+  });
+  refrescarSelectsPredeterminado(1);
+  refrescarSelectsPredeterminado(2);
+}
+document.getElementById('cfgPrecision').addEventListener('change', onPrecisionChange);
+
+function onTipoJornadaChange() {
+  const partida = document.getElementById('cfgTipoJornada').value === 'partida';
+  document.getElementById('bloqueTramo2').style.display = partida ? 'block' : 'none';
+  document.getElementById('labelJornada1').innerHTML = partida
+    ? '🕒 Tramo 1 — Intervalo de la jornada <span style="font-weight:normal;color:#777">(rango completo de 24 h)</span>'
+    : '🕒 Intervalo de la jornada <span style="font-weight:normal;color:#777">(rango completo de 24 h; delimita las opciones del intervalo predeterminado)</span>';
+  document.getElementById('labelPredeterminado1').innerHTML = partida
+    ? '⭐ Tramo 1 — Intervalo predeterminado <span style="font-weight:normal;color:#777">(no puede solaparse con el predeterminado del tramo 2)</span>'
+    : '⭐ Intervalo predeterminado <span style="font-weight:normal;color:#777">(valores que se preseleccionan al marcar un día; acotado por la jornada)</span>';
+}
+document.getElementById('cfgTipoJornada').addEventListener('change', onTipoJornadaChange);
+
+// tramo: 1 o 2 — acota los selects "predeterminado" de ese tramo a su propia jornada,
+// usando la precisión horaria seleccionada en vivo en el formulario.
+function refrescarSelectsPredeterminado(tramo) {
+  const sufijo = tramo === 2 ? '2' : '';
+  const inicio = document.getElementById('cfgJornadaInicio'+sufijo).value;
+  const fin = document.getElementById('cfgJornadaFin'+sufijo).value;
+  const opts = opcionesDentroDeJornada(inicio, fin, precisionSeleccionada());
+  const defEntradaId = 'cfgDefEntrada'+sufijo, defSalidaId = 'cfgDefSalida'+sufijo;
+  let defEntradaActual = document.getElementById(defEntradaId).value || APP_CONFIG['defEntrada'+sufijo];
+  let defSalidaActual = document.getElementById(defSalidaId).value || APP_CONFIG['defSalida'+sufijo];
+  if (!opts.includes(defEntradaActual)) defEntradaActual = opts[0];
+  if (!opts.includes(defSalidaActual)) defSalidaActual = opts[opts.length-1];
+  fillTimeSelect(defEntradaId, opts, defEntradaActual);
+  fillTimeSelect(defSalidaId, opts, defSalidaActual);
+}
+document.getElementById('cfgJornadaInicio').addEventListener('change', ()=>refrescarSelectsPredeterminado(1));
+document.getElementById('cfgJornadaFin').addEventListener('change', ()=>refrescarSelectsPredeterminado(1));
+document.getElementById('cfgJornadaInicio2').addEventListener('change', ()=>refrescarSelectsPredeterminado(2));
+document.getElementById('cfgJornadaFin2').addEventListener('change', ()=>refrescarSelectsPredeterminado(2));
+
+function actualizarFeedbackDni() {
+  const r = validarDniNie(document.getElementById('cfgDni').value);
+  const el = document.getElementById('cfgDniFeedback');
+  el.textContent = r.msg;
+  el.style.color = r.valid===false ? '#cc2222' : r.valid===true ? '#1a6a3a' : '#888';
+}
+document.getElementById('cfgDni').addEventListener('input', actualizarFeedbackDni);
+
+function guardarConfiguracion() {
+  const nombre = document.getElementById('cfgNombre').value.trim();
+  const dni = document.getElementById('cfgDni').value.trim().toUpperCase();
+  const otroDoc = document.getElementById('cfgOtroDoc').value.trim();
+  const dniCheck = validarDniNie(dni);
+  if (dniCheck.valid === false) { alert('El DNI/NIE no es válido: '+dniCheck.msg.replace('✕ ','')); return; }
+
+  const tipoJornada = document.getElementById('cfgTipoJornada').value;
+  const partida = tipoJornada === 'partida';
+
+  const jornadaInicio = document.getElementById('cfgJornadaInicio').value;
+  const jornadaFin = document.getElementById('cfgJornadaFin').value;
+  const defEntrada = document.getElementById('cfgDefEntrada').value;
+  const defSalida = document.getElementById('cfgDefSalida').value;
+  let jornadaInicio2 = APP_CONFIG.jornadaInicio2, jornadaFin2 = APP_CONFIG.jornadaFin2;
+  let defEntrada2 = APP_CONFIG.defEntrada2, defSalida2 = APP_CONFIG.defSalida2;
+  if (partida) {
+    jornadaInicio2 = document.getElementById('cfgJornadaInicio2').value;
+    jornadaFin2 = document.getElementById('cfgJornadaFin2').value;
+    defEntrada2 = document.getElementById('cfgDefEntrada2').value;
+    defSalida2 = document.getElementById('cfgDefSalida2').value;
+  }
+  const valores = partida
+    ? [jornadaInicio,jornadaFin,defEntrada,defSalida,jornadaInicio2,jornadaFin2,defEntrada2,defSalida2]
+    : [jornadaInicio,jornadaFin,defEntrada,defSalida];
+  if (valores.some(v => !v || Number.isNaN(timeToMinutes(v)))) {
+    alert('Alguno de los horarios no tiene un valor válido. Vuelve a seleccionarlo y guarda de nuevo.'); return;
+  }
+
+  if (timeToMinutes(jornadaFin) <= timeToMinutes(jornadaInicio)) {
+    alert('Tramo 1: la hora de fin de la jornada debe ser posterior a la de inicio.'); return;
+  }
+  if (timeToMinutes(defSalida) <= timeToMinutes(defEntrada)) {
+    alert('Tramo 1: la hora de salida predeterminada debe ser posterior a la de entrada.'); return;
+  }
+
+  if (partida) {
+    if (timeToMinutes(jornadaFin2) <= timeToMinutes(jornadaInicio2)) {
+      alert('Tramo 2: la hora de fin de la jornada debe ser posterior a la de inicio.'); return;
+    }
+    if (timeToMinutes(defSalida2) <= timeToMinutes(defEntrada2)) {
+      alert('Tramo 2: la hora de salida predeterminada debe ser posterior a la de entrada.'); return;
+    }
+    // Solo los intervalos PREDETERMINADOS no pueden solaparse entre tramos (las jornadas sí pueden).
+    if (intervalosSolapan(defEntrada, defSalida, defEntrada2, defSalida2)) {
+      alert('Los intervalos predeterminados de los dos tramos no pueden solaparse. Ajusta las horas predeterminadas de cada tramo.');
+      return;
+    }
+  }
+
+  saveConfigData({ nombre, dni, otroDoc, tipoJornada, precisionMinutos:precisionSeleccionada(), jornadaInicio, jornadaFin, defEntrada, defSalida, jornadaInicio2, jornadaFin2, defEntrada2, defSalida2 });
+  document.getElementById('cfgStatus').textContent = '✓ Configuración guardada';
+  setTimeout(()=>{ document.getElementById('cfgStatus').textContent=''; }, 3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════
+try {
+  buildYearTabs();
+  renderCalendar();
+  populateReportSelectors();
+  onRepTipoChange();
+  populateConfigPanel();
+  setMode('horas');
+} catch(e) {
+  console.error('Init error:', e);
+  document.getElementById('calendarGrid').innerHTML =
+    '<p style="color:red;padding:20px">Error al cargar el calendario: ' + e.message + '</p>';
+}
+
+// Registro del service worker (necesario para poder "Instalar app" en Android/Chrome).
+// Solo funciona servido por http(s), no abriendo el archivo directamente con file://.
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(err => console.warn('SW no registrado:', err));
+  });
+}
+</script>
+</body>
+</html>
